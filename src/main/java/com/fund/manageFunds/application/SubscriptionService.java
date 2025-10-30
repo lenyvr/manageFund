@@ -37,7 +37,7 @@ public class SubscriptionService {
     }
 
     public List<Subscription> getByClientFiltered(String clientEmail, String fundName, String state){
-        List<Subscription> subscriptionList = new ArrayList<>();
+        List<Subscription> subscriptionList;
         if((fundName==null || fundName.isBlank() ) && (state==null || state.isBlank())){
             subscriptionList = subscriptionRepository.getByClient(clientEmail);
         } else {
@@ -53,14 +53,14 @@ public class SubscriptionService {
 
     public Subscription subscribeToAFund(Subscription subscription) {
         Fund fund = verifyFundExistence(subscription);
+        if(isAnyOpenInscription(subscription)){
+            throw new IsAlreadySubscribed(subscription.getClientEmail(), subscription.getFundName());
+        }
         List<Subscription> orderedSubscriptionList = orderSubscriptionByDate(
                 subscriptionRepository.getSubscriptionsByClientFiltered(
                         subscription.getClientEmail(),null,
                         SubscriptionState.OPENED.name())
                 );
-        if(isAnyOpenInscription(subscription)){
-            throw new IsAlreadySubscribed(subscription.getClientEmail(), subscription.getFundName());
-        }
         checkAvailableAmount(subscription, fund, orderedSubscriptionList);
 
         subscription.setState(SubscriptionState.OPENED);
@@ -153,7 +153,7 @@ public class SubscriptionService {
 
     private static List<Subscription> orderSubscriptionByDate(List<Subscription> subscriptions) {
         List<Subscription> orderedList = new ArrayList<>();
-        if(subscriptions!=null || !subscriptions.isEmpty()){
+        if(subscriptions!=null && !subscriptions.isEmpty()){
             orderedList = subscriptions.stream()
                     .sorted(Comparator.comparing(subs -> LocalDate.parse(subs.getDate(), FORMATTER)))
                     .collect(Collectors.toList());
